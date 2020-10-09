@@ -16,8 +16,8 @@
 
 
   const appWording = [
-    { type: STATE_PENDING, title: 'Travail en cours' },
-    { type: STATE_WORKING, title: 'Travail à faire' },
+    { type: STATE_PENDING, title: 'Travail à faire' },
+    { type: STATE_WORKING, title: 'Travail en cours' },
     { type: STATE_DONE, title: 'Travail réalisé' },
     { type: STATE_STORE, title: 'Boutiques' },
     
@@ -30,20 +30,6 @@
     store: { type: STATE_STORE, list: [] },
     ignored: { type: STATE_IGNORED, list: [] },
   };
-
-  const cleanContent = (content) => {
-    delete content.assignees;
-    delete content.attachments;
-    delete content.members;
-    delete content.milestones;
-    delete content.task_labels;
-    delete content.task_types;
-    delete content.timer;
-    delete content.project;
-    delete content.labels;
-
-    return content;
-  }
 
   const prepare = (lists) => appCategories.every((category) => {
     const list = lists.find(({ title }) => title === category.name)
@@ -77,24 +63,52 @@
     if (cat.store.list.includes(listId)) { return STATE_STORE; }
   }
 
+  const getLabel = (taskID, taskLabels) => taskLabels.reduce((acc, { task_id, label_id }) => (taskID === task_id ? acc + label_id : acc), 0)
+
   const parseFile = (fileContent) => {
-    const { lists, tasks } = JSON.parse(fileContent);
+    const { lists, tasks, task_labels, labels } = JSON.parse(fileContent);
     prepare(lists)
 
     let currentListId = 0;
     const content = tasks.filter(task => ! cat.ignored.list.includes(task.list_id))
-                          .map(({ title, description, list_id }) => ({
+                          .map(({ title, description, list_id, id }) => ({
                             title,
                             description,
-                            order: computeOrder(list_id, cat)
+                            order: computeOrder(list_id, cat),
+                            label: getLabel(id, task_labels),
                           }))
                           .sort((task1, task2) => (task1.order - task2.order))
                           .reduce((acc, task) => {
                             if (task.order !== currentListId) {
-                              currentListId = task.order;
-                              acc += `\r\n\r\n# ${appWording.find(cat => cat.type === task.order).title}`;
+                              acc.push({ order: task.order, tasks: [] });
+                              currentListId = task.order
                             }
-                            return acc + `\r\n\r\n## ${task.title}\r\n${task.description}`
+
+                            acc.forEach((osef, key) => {
+                                if (osef.order === task.order) { acc[key].tasks.push(task) }
+                            })
+                            return acc;
+                          }, [])
+                          .map(({order, tasks}) => ({
+                              order,
+                              tasks: tasks.sort((task1, task2) => (task1.label - task2.label)),
+                          }))
+                          .reduce((acc, data) => {
+                            console.log(appWording.find(cat => cat.type === data.order).title)
+                            acc += `\r\n\r\n# ${appWording.find(cat => cat.type === data.order)?.title}`;
+
+                            let currentLabel = 0
+                            return acc + data.tasks.reduce((acc, task) => {
+                                if (task.label !== currentLabel) {
+                                    const label = labels.find(({ id }) => id === task.label)
+                                    currentLabel = task.label
+                                    if (label === undefined) { return acc }
+
+                                    acc += `\r\n\r\n## Projet ${label.title}`
+                                }
+
+                                return acc + `\r\n\r\n## ${task.title}\r\n${task.description ?? ''}`
+                            }, '')
                           }, '');
     
     document.getElementById('inputfile').style.display = 'none';
