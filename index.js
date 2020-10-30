@@ -4,11 +4,13 @@
   const STATE_WORKING = 2;
   const STATE_STORE = 3;
   const STATE_IGNORED = 0;
+  const STATE_TODO = 5;
 
   const appCategories = [
     { name: 'Archive', type: STATE_IGNORED },
     { name: 'Done', type: STATE_DONE },
-    { name: 'ToDo', type: STATE_PENDING},
+    { name: 'ToDo', type: STATE_TODO },
+    { name: 'Planned', type: STATE_PENDING },
     { name: 'Store', type: STATE_STORE },
     { name: 'WFR', type: STATE_DONE },
     { name: 'Working', type: STATE_WORKING },
@@ -16,14 +18,16 @@
 
 
   const appWording = [
-    { type: STATE_PENDING, title: 'Travail à faire' },
-    { type: STATE_WORKING, title: 'Travail en cours' },
-    { type: STATE_DONE, title: 'Travail réalisé' },
-    { type: STATE_STORE, title: 'Boutiques' },
+    { type: STATE_TODO, title: 'ToDo' },
+    { type: STATE_PENDING, title: 'La semaine prochaine' },
+    { type: STATE_WORKING, title: 'En cours' },
+    { type: STATE_DONE, title: 'Fait' },
+    { type: STATE_STORE, title: 'Store' },
     
   ];
 
   const cat = {
+    todo: { type: STATE_TODO, list: [] },
     pending: { type: STATE_PENDING, list: [] },
     working: { type: STATE_WORKING, list: [] },
     done: { type: STATE_DONE, list: [] },
@@ -33,8 +37,13 @@
 
   const prepare = (lists) => appCategories.every((category) => {
     const list = lists.find(({ title }) => title === category.name)
+
+    if (list === undefined) { return true; }
     
     switch (category.type) {
+      case STATE_TODO:
+        cat.todo.list.push(list.id);
+        break;
       case STATE_PENDING:
         cat.pending.list.push(list.id);
         break;
@@ -57,6 +66,7 @@
   
 
   const computeOrder = (listId, cat) => {
+    if (cat.todo.list.includes(listId)) { return STATE_TODO; }
     if (cat.pending.list.includes(listId)) { return STATE_PENDING; }
     if (cat.working.list.includes(listId)) { return STATE_WORKING; }
     if (cat.done.list.includes(listId)) { return STATE_DONE; }
